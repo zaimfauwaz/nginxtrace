@@ -33,6 +33,7 @@ class Parser:
     def parse_directive(self) -> Directive:
         name_token = self.require_token("Expected a directive name")
         name = name_token.value
+        self.advance()
         arguments: list[str] = []
 
         while True:

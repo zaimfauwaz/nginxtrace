@@ -22,12 +22,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     return parser
 
-def main() -> None:
+def main(arguments: list[str] | None = None) -> None:
     parser = build_parser()
-    arguments = parser.parse_args()
+    parsed_arguments = parser.parse_args(arguments)
 
-    if arguments.command == "scan":
-        raise SystemExit(run_scan(arguments.config))
+    if parsed_arguments.command == "scan":
+        raise SystemExit(run_scan(parsed_arguments.config))
 
 if __name__ == "__main__":
     main()
