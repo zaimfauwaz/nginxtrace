@@ -1,6 +1,9 @@
 import argparse
+from pathlib import Path
 
-from version import VERSION
+from nginxtrace.commands.scan import run as run_scan
+from nginxtrace.version import VERSION
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -12,13 +15,19 @@ def build_parser() -> argparse.ArgumentParser:
         action="version",
         version=f"%(prog)s {VERSION}",
     )
-    return parser
 
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    scan_parser = subparsers.add_parser("scan", help="Scan an NGINX configuration file.")
+    scan_parser.add_argument("--config",type=Path,required=True,help="Path to the NGINX configuration file.")
+
+    return parser
 
 def main() -> None:
     parser = build_parser()
-    parser.parse_args()
+    arguments = parser.parse_args()
 
+    if arguments.command == "scan":
+        raise SystemExit(run_scan(arguments.config))
 
 if __name__ == "__main__":
     main()
