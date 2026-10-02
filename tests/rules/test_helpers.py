@@ -1,7 +1,11 @@
 from pathlib import Path
 
 from nginxtrace.config.parser import parse
-from nginxtrace.rules.helpers import find_directives, walk_directives
+from nginxtrace.rules.helpers import (
+    find_directives,
+    format_directive,
+    walk_directives,
+)
 
 
 def test_walk_directives_visits_nested_directives() -> None:
@@ -76,3 +80,26 @@ def test_find_directives_returns_empty_tuple_when_no_match_exists() -> None:
     )
 
     assert find_directives(directives, "proxy_pass") == ()
+
+
+def test_format_directive_renders_simple_directive() -> None:
+    directives = parse("root /var/www/app/public;", Path("nginx.conf"))
+
+    assert format_directive(directives[0]) == "root /var/www/app/public;"
+
+
+def test_format_directive_renders_block_header_without_children() -> None:
+    directives = parse(
+        "location ~ /\\. {\n"
+        "    deny all;\n"
+        "}\n",
+        Path("nginx.conf"),
+    )
+
+    assert format_directive(directives[0]) == "location ~ /\\. {"
+
+
+def test_format_directive_renders_directive_without_arguments() -> None:
+    directives = parse("server {\n}\n", Path("nginx.conf"))
+
+    assert format_directive(directives[0]) == "server {"

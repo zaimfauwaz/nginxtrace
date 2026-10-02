@@ -1,13 +1,25 @@
 from nginxtrace.findings.models import Finding
 
 def format_finding(finding: Finding) -> str:
-    return "\n".join((
+    lines = [
         f"{finding.severity.value.upper():<8} {finding.rule_id}",
+        finding.title,
+        "",
+        f"File: {finding.file.as_posix()}:{finding.line}",
+        f"Confidence: {finding.confidence.value}",
+        "",
         finding.message,
-        f"File: {finding.file.as_posix()}:{finding.line}"
-    ))
+        "",
+        "Remediation:",
+        finding.remediation,
+    ]
 
-def format_findings(findings: tuple[Finding]) -> str:
+    if finding.evidence:
+        lines.extend(("", "Evidence:", *finding.evidence))
+
+    return "\n".join(lines)
+
+def format_findings(findings: tuple[Finding, ...]) -> str:
     if not findings:
         return "No findings."
 

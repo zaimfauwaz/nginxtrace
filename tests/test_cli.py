@@ -58,9 +58,12 @@ def test_cli_scan_returns_one_for_unsafe_config(
 
     assert exit_info.value.code == 1
     assert "HIGH     NGX-SECRET-001" in captured.out
-    assert "Potential sensitive dotfile exposure" not in captured.out
+    assert "Potential sensitive dotfile exposure" in captured.out
     assert "A root directive was found" in captured.out
     assert f"File: {config_file.as_posix()}:2" in captured.out
+    assert "Confidence: medium" in captured.out
+    assert "Remediation:" in captured.out
+    assert "Evidence:\nroot /var/www/app/public;" in captured.out
     assert captured.err == ""
 
 

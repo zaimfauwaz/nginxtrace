@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from nginxtrace.config.models import Directive
+from nginxtrace.findings.confidence import Confidence
 from nginxtrace.findings.models import Finding
 from nginxtrace.findings.scanner import scan
 from nginxtrace.findings.severity import Severity
@@ -31,14 +32,20 @@ def test_scan_collects_findings_from_multiple_rules() -> None:
     first_finding = Finding(
         rule_id="TEST-FIRST-001",
         severity=Severity.HIGH,
+        title="Test title",
         message="First finding.",
+        remediation="Test remediation.",
+        confidence=Confidence.MEDIUM,
         file=Path("nginx.conf"),
         line=1,
     )
     second_finding = Finding(
         rule_id="TEST-SECOND-001",
         severity=Severity.MEDIUM,
+        title="Test title",
         message="Second finding.",
+        remediation="Test remediation.",
+        confidence=Confidence.MEDIUM,
         file=Path("nginx.conf"),
         line=2,
     )
@@ -61,28 +68,40 @@ def test_scan_sorts_findings_by_file_line_and_rule_id() -> None:
     finding_in_second_file = Finding(
         rule_id="TEST-SECOND-FILE-001",
         severity=Severity.LOW,
+        title="Test title",
         message="Second file finding.",
+        remediation="Test remediation.",
+        confidence=Confidence.MEDIUM,
         file=Path("sites-enabled/b.conf"),
         line=1,
     )
     finding_on_later_line = Finding(
         rule_id="TEST-LATER-LINE-001",
         severity=Severity.LOW,
+        title="Test title",
         message="Later line finding.",
+        remediation="Test remediation.",
+        confidence=Confidence.MEDIUM,
         file=Path("sites-enabled/a.conf"),
         line=10,
     )
     finding_on_earlier_line = Finding(
         rule_id="TEST-EARLIER-LINE-001",
         severity=Severity.LOW,
+        title="Test title",
         message="Earlier line finding.",
+        remediation="Test remediation.",
+        confidence=Confidence.MEDIUM,
         file=Path("sites-enabled/a.conf"),
         line=2,
     )
     finding_same_line_later_rule = Finding(
         rule_id="TEST-Z-001",
         severity=Severity.LOW,
+        title="Test title",
         message="Later rule identifier.",
+        remediation="Test remediation.",
+        confidence=Confidence.MEDIUM,
         file=Path("sites-enabled/a.conf"),
         line=2,
     )

@@ -20,3 +20,13 @@ def find_directives(
         for directive in walk_directives(directives)
         if directive.name == name
     )
+
+def format_directive(directive: Directive) -> str:
+    """Render one directive as single-line evidence text.
+
+    Children are not included. Arguments are joined by single spaces, so the
+    original quoting and whitespace are not reproduced exactly.
+    """
+    parts = (directive.name, *directive.arguments)
+    terminator = " {" if directive.children is not None else ";"
+    return " ".join(parts) + terminator
