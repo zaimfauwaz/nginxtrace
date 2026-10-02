@@ -97,6 +97,10 @@ class Parser:
         return token
 
 def parse(text:str, file: Path) -> tuple[Directive, ...]:
-    tokens = tokenize(text)
+    try:
+        tokens = tokenize(text)
+    except ValueError as err:
+        raise ParseError(str(err)) from err
+
     parser = Parser(tokens, file)
     return parser.parse()

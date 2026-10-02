@@ -3,7 +3,7 @@ from pathlib import Path
 from nginxtrace.findings.confidence import Confidence
 from nginxtrace.findings.models import Finding
 from nginxtrace.findings.severity import Severity
-from nginxtrace.output.text import format_finding, format_findings
+from nginxtrace.output.text import format_finding, format_findings, format_summary
 
 
 def make_finding(**overrides: object) -> Finding:
@@ -109,4 +109,22 @@ def test_format_findings_separates_multiple_findings() -> None:
         format_finding(first_finding)
         + "\n\n"
         + format_finding(second_finding)
+        + "\n\n"
+        + "2 findings (2 low)"
+    )
+
+
+def test_format_summary_counts_by_severity_from_highest() -> None:
+    findings = (
+        make_finding(severity=Severity.LOW),
+        make_finding(severity=Severity.HIGH),
+        make_finding(severity=Severity.LOW),
+    )
+
+    assert format_summary(findings) == "3 findings (1 high, 2 low)"
+
+
+def test_format_summary_uses_singular_for_one_finding() -> None:
+    assert format_summary((make_finding(severity=Severity.MEDIUM),)) == (
+        "1 finding (1 medium)"
     )
