@@ -116,3 +116,37 @@ def test_rule_evidence_is_local_to_each_root_directive() -> None:
         ("root /var/www/site-a/public;",),
         ("root /var/www/site-b/public;",),
     ]
+
+
+def test_rule_reports_dotfile_location_without_deny_all() -> None:
+    directives = parse(
+        "server {\n"
+        "    root /var/www/app/public;\n"
+        "\n"
+        "    location ~ /\\. {\n"
+        "    }\n"
+        "}\n",
+        Path("nginx.conf"),
+    )
+
+    findings = SecretExposureRule().evaluate(directives)
+
+    assert len(findings) == 1
+    assert findings[0].line == 2
+
+
+def test_rule_reports_dotfile_location_with_partial_deny() -> None:
+    directives = parse(
+        "server {\n"
+        "    root /var/www/app/public;\n"
+        "\n"
+        "    location ~ /\\. {\n"
+        "        deny 10.0.0.1;\n"
+        "    }\n"
+        "}\n",
+        Path("nginx.conf"),
+    )
+
+    findings = SecretExposureRule().evaluate(directives)
+
+    assert len(findings) == 1

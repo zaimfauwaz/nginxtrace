@@ -45,7 +45,11 @@ class SecretExposureRule(Rule):
         location_directives = find_directives(directives, "location")
 
         for directive in location_directives:
-            if any(argument.startswith("/\\.") for argument in directive.arguments):
-                return True
+            if not any(argument.startswith("/\\.") for argument in directive.arguments):
+                continue
+
+            for child in directive.children or ():
+                if child.name == "deny" and child.arguments == ("all",):
+                    return True
 
         return False
