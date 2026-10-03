@@ -27,8 +27,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--min-severity",
         type=Severity,
         choices=list(Severity),
-        default=Severity.INFO,
-        help="Only report findings at or above this severity.",
+        default=None,
+        help="Only report findings at or above this severity. Overrides the policy file.",
     )
     scan_parser.add_argument(
         "--format",
@@ -36,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="text",
         help="Output format.",
     )
+    scan_parser.add_argument("--policy",type=Path,default=None,help="Path to a TOML policy file.")
 
     check_parser = subparsers.add_parser("check", help="Check NGINX configuration syntax only.")
     check_parser.add_argument("--config",type=Path,required=True,help="Path to the NGINX configuration file.")
@@ -57,6 +58,7 @@ def main(arguments: list[str] | None = None) -> None:
             parsed_arguments.config,
             min_severity=parsed_arguments.min_severity,
             output_format=parsed_arguments.format,
+            policy_file=parsed_arguments.policy,
         ))
 
     if parsed_arguments.command == "check":

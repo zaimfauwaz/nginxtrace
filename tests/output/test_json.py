@@ -5,6 +5,7 @@ from nginxtrace.findings.confidence import Confidence
 from nginxtrace.findings.models import Finding
 from nginxtrace.findings.severity import Severity
 from nginxtrace.output.json import finding_to_dict, format_findings
+from nginxtrace.policy.models import SuppressedFinding, Suppression
 
 
 def make_finding() -> Finding:
@@ -43,4 +44,20 @@ def test_format_findings_returns_valid_json() -> None:
 
 
 def test_format_findings_returns_empty_list_without_findings() -> None:
-    assert json.loads(format_findings(())) == {"total": 0, "findings": []}
+    assert json.loads(format_findings(())) == {"total": 0, "findings": [], "suppressed": []}
+
+
+def test_format_findings_includes_suppressed_with_reason() -> None:
+    finding = make_finding()
+    suppressed = SuppressedFinding(
+        finding,
+        Suppression("NGX-SECRET-001", "conf.d/app.conf", "Blocked at the CDN"),
+    )
+
+    result = json.loads(format_findings((), (suppressed,)))
+
+    assert result["total"] == 0
+    assert result["findings"] == []
+    assert result["suppressed"] == [
+        {**finding_to_dict(finding), "reason": "Blocked at the CDN"},
+    ]

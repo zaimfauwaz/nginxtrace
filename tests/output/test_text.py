@@ -4,6 +4,7 @@ from nginxtrace.findings.confidence import Confidence
 from nginxtrace.findings.models import Finding
 from nginxtrace.findings.severity import Severity
 from nginxtrace.output.text import format_finding, format_findings, format_summary
+from nginxtrace.policy.models import SuppressedFinding, Suppression
 
 
 def make_finding(**overrides: object) -> Finding:
@@ -127,4 +128,38 @@ def test_format_summary_counts_by_severity_from_highest() -> None:
 def test_format_summary_uses_singular_for_one_finding() -> None:
     assert format_summary((make_finding(severity=Severity.MEDIUM),)) == (
         "1 finding (1 medium)"
+    )
+
+
+def make_suppressed(finding: Finding) -> SuppressedFinding:
+    return SuppressedFinding(
+        finding,
+        Suppression(finding.rule_id, finding.file.as_posix(), "Accepted risk"),
+    )
+
+
+def test_format_findings_lists_suppressed_findings_with_reason() -> None:
+    kept = make_finding(rule_id="NGX-ROOT-001", severity=Severity.HIGH)
+    suppressed = make_suppressed(make_finding(rule_id="NGX-SECRET-001", line=7))
+
+    result = format_findings((kept,), (suppressed,))
+
+    assert result.endswith(
+        "Suppressed:\n"
+        "NGX-SECRET-001 nginx.conf:7 (Accepted risk)\n"
+        "\n"
+        "1 finding (1 high), 1 suppressed"
+    )
+
+
+def test_format_findings_with_only_suppressed_findings() -> None:
+    suppressed = make_suppressed(make_finding(rule_id="NGX-SECRET-001", line=7))
+
+    assert format_findings((), (suppressed,)) == (
+        "No findings.\n"
+        "\n"
+        "Suppressed:\n"
+        "NGX-SECRET-001 nginx.conf:7 (Accepted risk)\n"
+        "\n"
+        "0 findings, 1 suppressed"
     )

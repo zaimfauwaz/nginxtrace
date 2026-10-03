@@ -1,0 +1,15 @@
+# Example nginxtrace policy file.
+# Run from the repository root:
+#   nginxtrace scan --config examples/ngx-root-001-safe.nginx.conf --policy examples/nginxtrace.toml
+
+min_severity = "low"
+disable = ["NGX-PROXY-ERR-001"]
+
+[severity]
+"NGX-MAP-001" = "medium"
+
+[[suppress]]
+rule = "NGX-SECRET-001"
+file = "examples/ngx-root-001-safe.nginx.conf"
+line = 7
+reason = "Example: dotfiles are blocked at the CDN"

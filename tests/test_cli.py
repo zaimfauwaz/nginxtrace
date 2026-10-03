@@ -209,7 +209,7 @@ def test_cli_scan_json_output_without_findings(
     )
 
     assert code == 0
-    assert json.loads(out) == {"total": 0, "findings": []}
+    assert json.loads(out) == {"total": 0, "findings": [], "suppressed": []}
 
 
 def test_cli_check_returns_zero_for_valid_syntax(
@@ -280,3 +280,137 @@ def test_python_module_entry_point_runs_cli(
 
     assert exit_info.value.code == 0
     assert capsys.readouterr().out.startswith("nginxtrace ")
+
+
+def write_policy(tmp_path: Path, text: str) -> Path:
+    policy_file = tmp_path / "nginxtrace.toml"
+    policy_file.write_text(text, encoding="utf-8")
+    return policy_file
+
+
+def test_cli_scan_policy_disables_rule(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "merge_slashes off;\n")
+    policy_file = write_policy(tmp_path, 'disable = ["NGX-SLASH-001"]\n')
+
+    code, out, _ = run_cli(
+        ["scan", "--config", str(config_file), "--policy", str(policy_file)],
+        capsys,
+    )
+
+    assert code == 0
+    assert out == "No findings.\n"
+
+
+def test_cli_scan_policy_overrides_severity(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "merge_slashes off;\n")
+    policy_file = write_policy(tmp_path, '[severity]\n"NGX-SLASH-001" = "critical"\n')
+
+    code, out, _ = run_cli(
+        ["scan", "--config", str(config_file), "--policy", str(policy_file)],
+        capsys,
+    )
+
+    assert code == 1
+    assert out.startswith("CRITICAL NGX-SLASH-001")
+
+
+def test_cli_scan_policy_suppression_does_not_fail_scan(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "merge_slashes off;\n")
+    policy_file = write_policy(
+        tmp_path,
+        "[[suppress]]\n"
+        'rule = "NGX-SLASH-001"\n'
+        f'file = "{config_file.as_posix()}"\n'
+        "line = 1\n"
+        'reason = "Required by legacy app"\n',
+    )
+
+    code, out, _ = run_cli(
+        ["scan", "--config", str(config_file), "--policy", str(policy_file)],
+        capsys,
+    )
+
+    assert code == 0
+    assert "(Required by legacy app)" in out
+    assert out.endswith("0 findings, 1 suppressed\n")
+
+
+def test_cli_scan_policy_min_severity_is_used(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "merge_slashes off;\n")
+    policy_file = write_policy(tmp_path, 'min_severity = "high"\n')
+
+    code, out, _ = run_cli(
+        ["scan", "--config", str(config_file), "--policy", str(policy_file)],
+        capsys,
+    )
+
+    assert code == 0
+    assert out == "No findings.\n"
+
+
+def test_cli_min_severity_overrides_policy(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "merge_slashes off;\n")
+    policy_file = write_policy(tmp_path, 'min_severity = "high"\n')
+
+    code, out, _ = run_cli(
+        [
+            "scan", "--config", str(config_file),
+            "--policy", str(policy_file),
+            "--min-severity", "low",
+        ],
+        capsys,
+    )
+
+    assert code == 1
+    assert "NGX-SLASH-001" in out
+
+
+def test_cli_scan_returns_two_for_invalid_policy(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "listen 80;\n")
+    policy_file = write_policy(tmp_path, 'disable = ["NGX-NOPE-001"]\n')
+
+    code, out, err = run_cli(
+        ["scan", "--config", str(config_file), "--policy", str(policy_file)],
+        capsys,
+    )
+
+    assert code == 2
+    assert out == ""
+    assert "Error: Unknown rule ID 'NGX-NOPE-001' in disable" in err
+
+
+def test_cli_scan_example_policy_from_repository_root(
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.chdir(Path(__file__).parent.parent)
+
+    code, out, _ = run_cli(
+        [
+            "scan",
+            "--config", "examples/ngx-root-001-safe.nginx.conf",
+            "--policy", "examples/nginxtrace.toml",
+        ],
+        capsys,
+    )
+
+    assert code == 0
+    assert "NGX-SECRET-001 examples/ngx-root-001-safe.nginx.conf:7" in out
