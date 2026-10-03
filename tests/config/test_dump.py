@@ -4,7 +4,9 @@ import pytest
 
 from nginxtrace.config.dump import split_dump
 from nginxtrace.config.loader import ConfigLoadError
+from nginxtrace.config.parser import ParseError
 from nginxtrace.config.service import parse_dump
+from tests.config.test_includes import write
 
 DUMP = (
     "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\n"
@@ -79,3 +81,80 @@ def test_parse_dump_file_outside_base_dir_is_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(ConfigLoadError, match=r"Path is outside the allowed directory"):
         parse_dump(outside)
+
+def test_parse_dump_error_in_main_section_names_source_file(
+        tmp_path: Path,
+) -> None:
+    dump_file = write(
+        tmp_path,
+        "nginx-T.txt",
+        "# configuration file /etc/nginx/nginx.conf:\n"
+        "http {\n",
+    )
+
+    with pytest.raises(
+            ParseError,
+            match=r"Expected '\}' to close directive 'http'",
+    ):
+        parse_dump(dump_file)
+
+
+def test_parse_dump_error_in_included_section_names_source_file(
+        tmp_path: Path,
+) -> None:
+    dump_file = write(
+        tmp_path,
+        "nginx-T.txt",
+        "# configuration file /etc/nginx/nginx.conf:\n"
+        "include /etc/nginx/conf.d/app.conf;\n"
+        "# configuration file /etc/nginx/conf.d/app.conf:\n"
+        "server {\n",
+    )
+
+    with pytest.raises(
+            ParseError,
+            match=r"/etc/nginx/conf\.d/app\.conf: Expected '\}' "
+                  r"to close directive 'server'",
+    ):
+        parse_dump(dump_file)
+
+
+def test_parse_dump_unterminated_quote_in_included_section_names_source_file(
+        tmp_path: Path,
+) -> None:
+    dump_file = write(
+        tmp_path,
+        "nginx-T.txt",
+        "# configuration file /etc/nginx/nginx.conf:\n"
+        "include /etc/nginx/conf.d/app.conf;\n"
+        "# configuration file /etc/nginx/conf.d/app.conf:\n"
+        'add_header X-Test "unterminated;\n',
+    )
+
+    with pytest.raises(
+            ParseError,
+            match=(
+                    r"/etc/nginx/conf\.d/app\.conf: Unterminated quoted string "
+                    r"starting on line 1"
+            ),
+    ):
+        parse_dump(dump_file)
+
+
+def test_parse_dump_without_includes_does_not_parse_broken_child_section(
+        tmp_path: Path,
+) -> None:
+    dump_file = write(
+        tmp_path,
+        "nginx-T.txt",
+        "# configuration file /etc/nginx/nginx.conf:\n"
+        "include /etc/nginx/conf.d/app.conf;\n"
+        "# configuration file /etc/nginx/conf.d/app.conf:\n"
+        'add_header X-Test "unterminated;\n',
+    )
+
+    directives = parse_dump(dump_file, resolve_includes=False)
+
+    assert [(directive.name, directive.arguments) for directive in directives] == [
+        ("include", ("/etc/nginx/conf.d/app.conf",)),
+    ]

@@ -35,8 +35,14 @@ class Parser:
 
     def parse_directive(self) -> Directive:
         name_token = self.require_token("Expected a directive name")
+
+        if name_token.value in {";", "{", "}"}:
+            raise ParseError(
+                f"Unexpected token {name_token.value!r} on line {name_token.line}"
+            )
         name = name_token.value
         self.advance()
+
         arguments: list[str] = []
 
         while True:
@@ -46,7 +52,8 @@ class Parser:
 
             if token.value == ";":
                 self.advance()
-                return  Directive(
+
+                return Directive(
                     name=name,
                     arguments=tuple(arguments),
                     file=self.file,
@@ -55,6 +62,7 @@ class Parser:
 
             if token.value == "{":
                 self.depth += 1
+
                 if self.depth > MAX_NESTING_DEPTH:
                     raise ParseError(
                         f"Blocks are nested more than {MAX_NESTING_DEPTH} levels deep "
@@ -64,6 +72,7 @@ class Parser:
                 self.advance()
                 children = self.parse_directives()
                 self.depth -= 1
+
                 closing_token = self.require_token(
                     f"Expected '}}' to close directive {name!r}"
                 )
@@ -71,10 +80,11 @@ class Parser:
                 if closing_token.value != "}":
                     raise ParseError(
                         f"Expected '}}' to close directive {name!r} "
-                        f"on line {closing_token.line} "
+                        f"on line {closing_token.line}"
                     )
 
                 self.advance()
+
                 return Directive(
                     name=name,
                     arguments=tuple(arguments),

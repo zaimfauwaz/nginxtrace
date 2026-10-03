@@ -231,3 +231,72 @@ def test_wildcard_match_symlinked_outside_base_dir_is_rejected(tmp_path: Path) -
 
     with pytest.raises(ConfigLoadError, match=r"Path is outside the allowed directory"):
         parse_file(main_file)
+
+def test_unterminated_quote_in_included_file_names_the_file(
+        tmp_path: Path,
+) -> None:
+    main_file = write(tmp_path, "nginx.conf", "include broken.conf;\n")
+    write(tmp_path, "broken.conf", 'add_header X-Test "unterminated;\n')
+
+    with pytest.raises(
+            ParseError,
+            match=(
+                    r"broken\.conf: Unterminated quoted string "
+                    r"starting on line 1"
+            ),
+    ):
+        parse_file(main_file)
+
+
+def test_structural_error_in_included_file_names_the_file(
+        tmp_path: Path,
+) -> None:
+    main_file = write(tmp_path, "nginx.conf", "include broken.conf;\n")
+    write(tmp_path, "broken.conf", "server {\n")
+
+    with pytest.raises(
+            ParseError,
+            match=r"broken\.conf: Expected '\}' to close directive 'server'",
+    ):
+        parse_file(main_file)
+
+
+def test_nested_included_file_error_names_the_deepest_file(
+        tmp_path: Path,
+) -> None:
+    main_file = write(tmp_path, "nginx.conf", "include conf.d/app.conf;\n")
+    write(tmp_path, "conf.d/app.conf", "include snippets/broken.conf;\n")
+    write(tmp_path, "snippets/broken.conf", "listen 80;;\n")
+
+    with pytest.raises(
+            ParseError,
+            match=r"broken\.conf: Unexpected token ';' on line 1",
+    ):
+        parse_file(main_file)
+
+
+def test_malformed_wildcard_match_names_the_matching_file(
+        tmp_path: Path,
+) -> None:
+    main_file = write(tmp_path, "nginx.conf", "include conf.d/*.conf;\n")
+    write(tmp_path, "conf.d/valid.conf", "listen 80;\n")
+    write(tmp_path, "conf.d/broken.conf", "location /api {\n")
+
+    with pytest.raises(
+            ParseError,
+            match=r"broken\.conf: Expected '\}' to close directive 'location'",
+    ):
+        parse_file(main_file)
+
+
+def test_no_includes_does_not_parse_malformed_included_file(
+        tmp_path: Path,
+) -> None:
+    main_file = write(tmp_path, "nginx.conf", "include broken.conf;\n")
+    write(tmp_path, "broken.conf", 'add_header X-Test "unterminated;\n')
+
+    directives = parse_file(main_file, resolve_includes=False)
+
+    assert [(directive.name, directive.arguments) for directive in directives] == [
+        ("include", ("broken.conf",)),
+    ]

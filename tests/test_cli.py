@@ -572,3 +572,90 @@ def test_cli_scan_needs_config_or_dump(capsys: pytest.CaptureFixture[str]) -> No
 
     assert code == 2
     assert "one of the arguments --config --dump is required" in err
+
+def test_cli_check_returns_two_for_empty_statement(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = tmp_path / "nginx.conf"
+    config_file.write_text(";\n", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as error:
+        main(["check", "--config", str(config_file)])
+
+    captured = capsys.readouterr()
+
+    assert error.value.code == 2
+    assert captured.out == ""
+    assert captured.err == "Error: Unexpected token ';' on line 1\n"
+
+
+def test_cli_check_returns_two_for_stray_opening_brace(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = tmp_path / "nginx.conf"
+    config_file.write_text("{\n", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as error:
+        main(["check", "--config", str(config_file)])
+
+    captured = capsys.readouterr()
+
+    assert error.value.code == 2
+    assert captured.out == ""
+    assert captured.err == "Error: Unexpected token '{' on line 1\n"
+
+
+def test_cli_check_returns_two_for_malformed_included_file(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    config_file = tmp_path / "nginx.conf"
+    included_file = tmp_path / "broken.conf"
+
+    config_file.write_text("include broken.conf;\n", encoding="utf-8")
+    included_file.write_text('add_header X-Test "unterminated;\n', encoding="utf-8")
+
+    with pytest.raises(SystemExit) as error:
+        main(["check", "--config", "nginx.conf"])
+
+    captured = capsys.readouterr()
+
+    assert error.value.code == 2
+    assert captured.out == ""
+    assert "Error: broken.conf: Unterminated quoted string starting on line 1" in (
+        captured.err
+    )
+
+
+def test_cli_check_dump_returns_two_for_malformed_included_section(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    dump_file = tmp_path / "nginx-T.txt"
+    dump_file.write_text(
+        "# configuration file /etc/nginx/nginx.conf:\n"
+        "include /etc/nginx/conf.d/app.conf;\n"
+        "# configuration file /etc/nginx/conf.d/app.conf:\n"
+        "server {\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit) as error:
+        main(["check", "--dump", "nginx-T.txt"])
+
+    captured = capsys.readouterr()
+
+    assert error.value.code == 2
+    assert captured.out == ""
+    assert (
+               "Error: /etc/nginx/conf.d/app.conf: "
+               "Expected '}' to close directive 'server'"
+           ) in captured.err
