@@ -454,3 +454,121 @@ def test_cli_scan_returns_two_for_policy_outside_base_dir(
     assert code == 2
     assert out == ""
     assert "Error: Path is outside the allowed directory" in err
+
+
+def test_cli_scan_follows_includes(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "include app.conf;\n")
+    (tmp_path / "app.conf").write_text("merge_slashes off;\n", encoding="utf-8")
+
+    code, out, err = run_cli(["scan", "--config", str(config_file)], capsys)
+
+    assert code == 1
+    assert "NGX-SLASH-001" in out
+    assert f"File: {(tmp_path / 'app.conf').as_posix()}:1" in out
+    assert err == ""
+
+
+def test_cli_scan_no_includes_skips_included_files(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "include app.conf;\n")
+    (tmp_path / "app.conf").write_text("merge_slashes off;\n", encoding="utf-8")
+
+    code, out, err = run_cli(["scan", "--config", str(config_file), "--no-includes"], capsys)
+
+    assert code == 0
+    assert out == "No findings.\n"
+
+
+def test_cli_scan_returns_two_for_missing_include(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "include missing.conf;\n")
+
+    code, out, err = run_cli(["scan", "--config", str(config_file)], capsys)
+
+    assert code == 2
+    assert out == ""
+    assert "Error: Configuration file does not exist" in err
+
+
+def test_cli_scan_returns_two_for_include_outside_base_dir(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "include ../outside.conf;\n")
+
+    code, out, err = run_cli(["scan", "--config", str(config_file)], capsys)
+
+    assert code == 2
+    assert out == ""
+    assert "Error: Path is outside the allowed directory" in err
+
+
+def test_cli_check_returns_two_for_include_cycle(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_file = write_config(tmp_path, "include nginx.conf;\n")
+
+    code, out, err = run_cli(["check", "--config", str(config_file)], capsys)
+
+    assert code == 2
+    assert "Error: Include cycle detected" in err
+
+
+def test_cli_scan_dump(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    dump_file = tmp_path / "nginx-T.txt"
+    dump_file.write_text(
+        "# configuration file /etc/nginx/nginx.conf:\n"
+        "include conf.d/app.conf;\n"
+        "# configuration file /etc/nginx/conf.d/app.conf:\n"
+        "merge_slashes off;\n",
+        encoding="utf-8",
+    )
+
+    code, out, err = run_cli(["scan", "--dump", str(dump_file)], capsys)
+
+    assert code == 1
+    assert "File: /etc/nginx/conf.d/app.conf:1" in out
+
+
+def test_cli_check_dump(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    dump_file = tmp_path / "nginx-T.txt"
+    dump_file.write_text("# configuration file /etc/nginx/nginx.conf:\nlisten 80;\n", encoding="utf-8")
+
+    code, out, err = run_cli(["check", "--dump", str(dump_file)], capsys)
+
+    assert code == 0
+    assert out == f"Syntax OK: {dump_file.as_posix()}\n"
+
+
+def test_cli_config_and_dump_cannot_be_combined(
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    code, out, err = run_cli(
+        ["scan", "--config", "nginx.conf", "--dump", "nginx-T.txt"],
+        capsys,
+    )
+
+    assert code == 2
+    assert "not allowed with argument" in err
+
+
+def test_cli_scan_needs_config_or_dump(capsys: pytest.CaptureFixture[str]) -> None:
+    code, out, err = run_cli(["scan"], capsys)
+
+    assert code == 2
+    assert "one of the arguments --config --dump is required" in err

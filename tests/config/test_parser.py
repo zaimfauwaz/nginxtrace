@@ -113,3 +113,17 @@ def test_parse_rejects_unexpected_closing_brace() -> None:
             match=r"Unexpected token '}' on line 1",
     ):
         parse("}", Path("nginx.conf"))
+
+def test_parse_rejects_blocks_nested_too_deeply() -> None:
+    text = "a {" * 51 + "}" * 51
+
+    with pytest.raises(ParseError, match=r"nested more than 50 levels deep"):
+        parse(text, Path("nginx.conf"))
+
+
+def test_parse_accepts_blocks_nested_at_limit() -> None:
+    text = "a {" * 50 + "}" * 50
+
+    directives = parse(text, Path("nginx.conf"))
+
+    assert directives[0].name == "a"

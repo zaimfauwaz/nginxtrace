@@ -8,6 +8,16 @@ from nginxtrace.findings.severity import Severity
 from nginxtrace.version import VERSION
 
 
+def add_input_arguments(parser: argparse.ArgumentParser) -> None:
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--config",type=Path,help="Path to the NGINX configuration file.")
+    source.add_argument("--dump",type=Path,help="Path to a file with the output of `nginx -T`.")
+    parser.add_argument(
+        "--no-includes",
+        action="store_true",
+        help="Do not follow include directives.",
+    )
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="nginxtrace",
@@ -22,7 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     scan_parser = subparsers.add_parser("scan", help="Scan an NGINX configuration file.")
-    scan_parser.add_argument("--config",type=Path,required=True,help="Path to the NGINX configuration file.")
+    add_input_arguments(scan_parser)
     scan_parser.add_argument(
         "--min-severity",
         type=Severity,
@@ -39,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     scan_parser.add_argument("--policy",type=Path,default=None,help="Path to a TOML policy file.")
 
     check_parser = subparsers.add_parser("check", help="Check NGINX configuration syntax only.")
-    check_parser.add_argument("--config",type=Path,required=True,help="Path to the NGINX configuration file.")
+    add_input_arguments(check_parser)
 
     rules_parser = subparsers.add_parser("rules", help="List or show detection rules.")
     rules_subparsers = rules_parser.add_subparsers(dest="rules_command", required=True)
@@ -53,16 +63,23 @@ def main(arguments: list[str] | None = None) -> None:
     parser = build_parser()
     parsed_arguments = parser.parse_args(arguments)
 
+    if parsed_arguments.command in ("scan", "check"):
+        from_dump = parsed_arguments.dump is not None
+        file = parsed_arguments.dump if from_dump else parsed_arguments.config
+        resolve_includes = not parsed_arguments.no_includes
+
     if parsed_arguments.command == "scan":
         raise SystemExit(run_scan(
-            parsed_arguments.config,
+            file,
             min_severity=parsed_arguments.min_severity,
             output_format=parsed_arguments.format,
             policy_file=parsed_arguments.policy,
+            resolve_includes=resolve_includes,
+            from_dump=from_dump,
         ))
 
     if parsed_arguments.command == "check":
-        raise SystemExit(run_check(parsed_arguments.config))
+        raise SystemExit(run_check(file, resolve_includes, from_dump))
 
     if parsed_arguments.command == "rules":
         if parsed_arguments.rules_command == "list":

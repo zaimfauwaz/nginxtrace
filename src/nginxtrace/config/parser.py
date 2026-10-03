@@ -3,6 +3,8 @@ from pathlib import Path
 from nginxtrace.config.models import Directive
 from nginxtrace.config.tokenizer import Token, tokenize
 
+MAX_NESTING_DEPTH = 50
+
 class ParseError(ValueError):
     """Raised when parsing of NGINX syntax configuration fails"""
 
@@ -11,6 +13,7 @@ class Parser:
         self.tokens = tokens
         self.file = file
         self.index = 0
+        self.depth = 0
 
     def parse(self) -> tuple[Directive, ...]:
         directives = self.parse_directives()
@@ -51,8 +54,16 @@ class Parser:
                 )
 
             if token.value == "{":
+                self.depth += 1
+                if self.depth > MAX_NESTING_DEPTH:
+                    raise ParseError(
+                        f"Blocks are nested more than {MAX_NESTING_DEPTH} levels deep "
+                        f"on line {token.line}"
+                    )
+
                 self.advance()
                 children = self.parse_directives()
+                self.depth -= 1
                 closing_token = self.require_token(
                     f"Expected '}}' to close directive {name!r}"
                 )

@@ -1,0 +1,28 @@
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+# configuration file /etc/nginx/nginx.conf:
+http {
+    server {
+        listen 80;
+        server_name app.example.test;
+
+        root /var/www/app/public;
+
+        include snippets/deny-dotfiles.conf;
+    }
+
+    include conf.d/*.conf;
+}
+
+# configuration file /etc/nginx/snippets/deny-dotfiles.conf:
+location ~ /\. {
+    deny all;
+}
+
+# configuration file /etc/nginx/conf.d/legacy.conf:
+server {
+    listen 8080;
+    server_name legacy.example.test;
+
+    merge_slashes off;
+}
