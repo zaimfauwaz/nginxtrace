@@ -15,16 +15,15 @@ def allowed_base_dir() -> Path:
     return Path(os.environ.get(BASE_DIR_VARIABLE) or os.getcwd())
 
 def resolve_within(file: Path, base_dir: Path) -> Path:
-    """Resolve file (following symlinks) and require it to be inside base_dir."""
-    base = os.path.realpath(base_dir)
-    resolved = os.path.realpath(os.path.join(base, file))
+    """Resolve file paths and reject values outside base_dir."""
+    base = Path(base_dir).resolve(strict=False)
+    resolved = (base / Path(file)).resolve(strict=False)
 
     try:
-        common = os.path.commonpath([base, resolved])
+        resolved.relative_to(base)
     except ValueError as err:
-        raise UnsafePathError(f"Path is outside the allowed directory {base}: {file}") from err
+        raise UnsafePathError(
+            f"Path is outside the allowed directory: {file}"
+        ) from err
 
-    if os.path.normcase(common) != os.path.normcase(base):
-        raise UnsafePathError(f"Path is outside the allowed directory {base}: {file}")
-
-    return Path(resolved)
+    return resolved

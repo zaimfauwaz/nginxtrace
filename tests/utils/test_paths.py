@@ -27,12 +27,8 @@ def test_resolve_within_accepts_relative_path_inside_base(tmp_path: Path) -> Non
 
 
 def test_resolve_within_rejects_parent_traversal(tmp_path: Path) -> None:
-    base = tmp_path / "allowed"
-    base.mkdir()
-    escape = Path("..") / "secret.conf"
-
-    with pytest.raises(UnsafePathError, match=r"outside the allowed directory"):
-        resolve_within(escape, base)
+    with pytest.raises(UnsafePathError):
+        resolve_within(Path("../outside.conf"), tmp_path)
 
 
 def test_resolve_within_rejects_absolute_path_outside_base(tmp_path: Path) -> None:
@@ -52,21 +48,31 @@ def test_resolve_within_rejects_sibling_with_same_prefix(tmp_path: Path) -> None
     with pytest.raises(UnsafePathError):
         resolve_within(sibling, base)
 
-
-def test_resolve_within_rejects_symlink_escaping_base(tmp_path: Path) -> None:
-    base = tmp_path / "allowed"
-    base.mkdir()
-    secret = tmp_path / "secret.conf"
-    secret.write_text("", encoding="utf-8")
-    link = base / "link.conf"
-
-    try:
-        link.symlink_to(secret)
-    except OSError:
-        pytest.skip("Symlinks are not available on this system")
+def test_resolve_within_rejects_absolute_external_path(tmp_path: Path) -> None:
+    external_path = tmp_path.parent / "outside.conf"
 
     with pytest.raises(UnsafePathError):
-        resolve_within(link, base)
+        resolve_within(external_path, tmp_path)
+
+
+def test_resolve_within_rejects_symlink_escaping_base(tmp_path: Path) -> None:
+    external_path = tmp_path.parent / "outside.conf"
+    external_path.write_text("secret", encoding="utf-8")
+
+    symlink = tmp_path / "escape.conf"
+
+    try:
+        symlink.symlink_to(external_path)
+    except OSError as err:
+        if os.name == "nt" and getattr(err, "winerror", None) == 1314:
+            pytest.skip("Creating symlinks requires Windows Developer Mode or elevation")
+        raise
+
+    with pytest.raises(
+            UnsafePathError,
+            match=r"Path is outside the allowed directory",
+    ):
+        resolve_within(symlink, tmp_path)
 
 
 def test_allowed_base_dir_reads_environment_variable(
@@ -86,3 +92,5 @@ def test_allowed_base_dir_defaults_to_current_directory(
     monkeypatch.chdir(tmp_path)
 
     assert allowed_base_dir() == Path(os.getcwd())
+
+
