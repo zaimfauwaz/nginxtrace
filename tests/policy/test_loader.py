@@ -55,6 +55,7 @@ def test_load_policy_accepts_suppression_without_line(tmp_path: Path) -> None:
     assert policy.suppressions[0].line is None
 
 
+@pytest.mark.usefixtures("allow_repository")
 def test_load_policy_example_file_is_valid() -> None:
     example = Path(__file__).parent.parent.parent / "examples" / "nginxtrace.toml"
 
@@ -86,10 +87,25 @@ def test_load_policy_rejects_invalid_policy(
         text: str,
         message: str,
 ) -> None:
+    policy_file = write_policy(tmp_path, text)
+
     with pytest.raises(PolicyLoadError, match=message):
-        load_policy(write_policy(tmp_path, text))
+        load_policy(policy_file)
 
 
 def test_load_policy_rejects_missing_file(tmp_path: Path) -> None:
     with pytest.raises(PolicyLoadError, match=r"Could not read policy file"):
         load_policy(tmp_path / "missing.toml")
+
+
+def test_load_policy_rejects_path_outside_base_dir(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    outside_file = write_policy(tmp_path, "")
+    monkeypatch.setenv("NGINXTRACE_BASE_DIR", str(allowed))
+
+    with pytest.raises(PolicyLoadError, match=r"Path is outside the allowed directory"):
+        load_policy(outside_file)

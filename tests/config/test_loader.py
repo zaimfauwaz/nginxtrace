@@ -35,3 +35,19 @@ def test_load_file_rejects_directory(tmp_path: Path) -> None:
             match=r"Configuration file is not a file:",
     ):
         load_file(config_directory)
+
+def test_load_file_rejects_path_outside_base_dir(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    outside_file = tmp_path / "secret.conf"
+    outside_file.write_text("listen 80;\n", encoding="utf-8")
+    monkeypatch.setenv("NGINXTRACE_BASE_DIR", str(allowed))
+
+    with pytest.raises(
+            ConfigLoadError,
+            match=r"Path is outside the allowed directory",
+    ):
+        load_file(outside_file)

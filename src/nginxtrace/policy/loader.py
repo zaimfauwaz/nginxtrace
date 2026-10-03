@@ -4,6 +4,7 @@ from pathlib import Path
 from nginxtrace.findings.severity import Severity
 from nginxtrace.policy.models import Policy, Suppression
 from nginxtrace.rules.registry import default_rules
+from nginxtrace.utils.paths import UnsafePathError, allowed_base_dir, resolve_within
 
 POLICY_KEYS = {"min_severity", "disable", "severity", "suppress"}
 SUPPRESSION_KEYS = {"rule", "file", "line", "reason"}
@@ -13,7 +14,12 @@ class PolicyLoadError(ValueError):
 
 def load_policy(file: Path) -> Policy:
     try:
-        data = tomllib.loads(file.read_text(encoding="utf-8"))
+        safe_file = resolve_within(file, allowed_base_dir())
+    except UnsafePathError as err:
+        raise PolicyLoadError(str(err)) from err
+
+    try:
+        data = tomllib.loads(safe_file.read_text(encoding="utf-8"))
     except OSError as err:
         raise PolicyLoadError(f"Could not read policy file {file}: {err}") from err
     except tomllib.TOMLDecodeError as err:

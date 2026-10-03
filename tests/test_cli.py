@@ -397,6 +397,7 @@ def test_cli_scan_returns_two_for_invalid_policy(
     assert "Error: Unknown rule ID 'NGX-NOPE-001' in disable" in err
 
 
+@pytest.mark.usefixtures("allow_repository")
 def test_cli_scan_example_policy_from_repository_root(
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
@@ -414,3 +415,42 @@ def test_cli_scan_example_policy_from_repository_root(
 
     assert code == 0
     assert "NGX-SECRET-001 examples/ngx-root-001-safe.nginx.conf:7" in out
+
+
+def test_cli_scan_returns_two_for_config_outside_base_dir(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    config_file = write_config(tmp_path, "listen 80;\n")
+    monkeypatch.setenv("NGINXTRACE_BASE_DIR", str(allowed))
+
+    code, out, err = run_cli(["scan", "--config", str(config_file)], capsys)
+
+    assert code == 2
+    assert out == ""
+    assert "Error: Path is outside the allowed directory" in err
+
+
+def test_cli_scan_returns_two_for_policy_outside_base_dir(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    config_file = allowed / "nginx.conf"
+    config_file.write_text("listen 80;\n", encoding="utf-8")
+    policy_file = write_policy(tmp_path, "")
+    monkeypatch.setenv("NGINXTRACE_BASE_DIR", str(allowed))
+
+    code, out, err = run_cli(
+        ["scan", "--config", str(config_file), "--policy", str(policy_file)],
+        capsys,
+    )
+
+    assert code == 2
+    assert out == ""
+    assert "Error: Path is outside the allowed directory" in err

@@ -7,6 +7,8 @@ from nginxtrace.cli import main
 
 EXAMPLES_DIRECTORY = Path(__file__).parent.parent / "examples"
 RULE_EXAMPLE_NAME = re.compile(r"^(ngx-[a-z-]+-\d{3})-(.+)\.nginx\.conf$")
+pytestmark = pytest.mark.usefixtures("allow_repository")
+
 RULE_EXAMPLES = sorted(
     path
     for path in EXAMPLES_DIRECTORY.glob("ngx-*.nginx.conf")
@@ -39,6 +41,7 @@ def test_rule_example_matches_its_name(
     code, out = scan_example(example, capsys)
 
     if variant.startswith("safe"):
+        assert code in (0, 1)
         assert rule_id not in out
     else:
         assert code == 1
