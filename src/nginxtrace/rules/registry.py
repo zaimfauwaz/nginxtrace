@@ -12,6 +12,8 @@ from nginxtrace.rules.secret_exposure import SecretExposureRule
 from nginxtrace.rules.ssrf import SsrfRule
 from nginxtrace.rules.valid_referers import ValidReferersNoneRule
 from nginxtrace.rules.server_tokens import ServerTokensEnabledRule
+from nginxtrace.rules.missing_nosniff import MissingNosniffRule
+from nginxtrace.rules.nested_nosniff_override import NestedNosniffOverrideRule
 
 def default_rules() -> tuple[Rule, ...]:
     return (
@@ -28,6 +30,8 @@ def default_rules() -> tuple[Rule, ...]:
         SsrfRule(),
         HeaderRedefinitionRule(),
         RawBackendResponseRule(),
+        MissingNosniffRule(),
+        NestedNosniffOverrideRule(),
     )
 
 def find_rule(rule_id: str) -> Rule | None:

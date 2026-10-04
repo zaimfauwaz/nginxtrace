@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from nginxtrace.rules.registry import default_rules
 from nginxtrace.cli import main
 
 
@@ -243,10 +244,15 @@ def test_cli_rules_list_prints_every_rule(
 ) -> None:
     code, out, _ = run_cli(["rules", "list"], capsys)
 
+    expected_rules = default_rules()
+    output_rule_ids = [
+        line.split(maxsplit=1)[0]
+        for line in out.splitlines()
+        if line
+    ]
+
     assert code == 0
-    assert len(out.splitlines()) == 13
-    assert out.startswith("NGX-SECRET-001")
-    assert "NGX-INFO-001" in out
+    assert output_rule_ids == [rule.rule_id for rule in expected_rules]
 
 
 def test_cli_rules_show_prints_rule_metadata(

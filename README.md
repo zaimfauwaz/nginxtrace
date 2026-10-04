@@ -1,5 +1,7 @@
 # nginxtrace
 
+Note: Project is still in active development.
+
 nginxtrace is a CLI-only, offline tool for inspecting NGINX configuration files. It validates supported static configuration syntax and reports common security and reliability risks through explainable, source-located findings.
 
 The tool is intended for DevOps engineers and developers who want a fast local review step before deployment, during CI, or when inspecting the effective configuration produced by `nginx -T`.

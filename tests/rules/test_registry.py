@@ -51,4 +51,6 @@ def test_default_rules_include_all_registered_rules() -> None:
         "NGX-SSRF-001",
         "NGX-HEADER-001",
         "NGX-PROXY-ERR-001",
+        "NGX-HEADER-SEC-001",
+        "NGX-HEADER-SEC-002",
     ]
