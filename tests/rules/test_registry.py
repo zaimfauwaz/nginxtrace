@@ -36,9 +36,10 @@ def test_find_rule_returns_none_for_unknown_rule_id() -> None:
     assert find_rule("NGX-UNKNOWN-999") is None
 
 
-def test_default_rules_include_all_phase_4_rules() -> None:
+def test_default_rules_include_all_registered_rules() -> None:
     assert [rule.rule_id for rule in default_rules()] == [
         "NGX-SECRET-001",
+        "NGX-INFO-001",
         "NGX-ROOT-001",
         "NGX-SLASH-001",
         "NGX-HOST-001",

@@ -11,10 +11,12 @@ from nginxtrace.rules.raw_backend_response import RawBackendResponseRule
 from nginxtrace.rules.secret_exposure import SecretExposureRule
 from nginxtrace.rules.ssrf import SsrfRule
 from nginxtrace.rules.valid_referers import ValidReferersNoneRule
+from nginxtrace.rules.server_tokens import ServerTokensEnabledRule
 
 def default_rules() -> tuple[Rule, ...]:
     return (
         SecretExposureRule(),
+        ServerTokensEnabledRule(),
         DangerousRootRule(),
         MergeSlashesOffRule(),
         HostSpoofingRule(),

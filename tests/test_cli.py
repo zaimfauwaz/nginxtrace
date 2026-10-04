@@ -244,8 +244,9 @@ def test_cli_rules_list_prints_every_rule(
     code, out, _ = run_cli(["rules", "list"], capsys)
 
     assert code == 0
-    assert len(out.splitlines()) == 12
+    assert len(out.splitlines()) == 13
     assert out.startswith("NGX-SECRET-001")
+    assert "NGX-INFO-001" in out
 
 
 def test_cli_rules_show_prints_rule_metadata(
