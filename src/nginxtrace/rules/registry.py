@@ -14,6 +14,10 @@ from nginxtrace.rules.valid_referers import ValidReferersNoneRule
 from nginxtrace.rules.server_tokens import ServerTokensEnabledRule
 from nginxtrace.rules.missing_nosniff import MissingNosniffRule
 from nginxtrace.rules.nested_nosniff_override import NestedNosniffOverrideRule
+from nginxtrace.rules.missing_hsts import MissingHstsRule
+from nginxtrace.rules.weak_hsts import WeakHstsRule
+from nginxtrace.rules.nested_hsts_override import NestedHstsOverrideRule
+from nginxtrace.rules.hsts_without_always import HstsWithoutAlwaysRule
 
 def default_rules() -> tuple[Rule, ...]:
     return (
@@ -32,6 +36,10 @@ def default_rules() -> tuple[Rule, ...]:
         RawBackendResponseRule(),
         MissingNosniffRule(),
         NestedNosniffOverrideRule(),
+        MissingHstsRule(),
+        WeakHstsRule(),
+        NestedHstsOverrideRule(),
+        HstsWithoutAlwaysRule(),
     )
 
 def find_rule(rule_id: str) -> Rule | None:

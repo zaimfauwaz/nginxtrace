@@ -1,7 +1,18 @@
 from pathlib import Path
 
+import pytest
+
 from nginxtrace.config.models import Directive
-from nginxtrace.rules.security_headers import HeaderDefinition, direct_blocks, direct_headers, effective_headers, extract_header, has_header, is_https_server
+from nginxtrace.rules.security_headers import (
+    HeaderDefinition,
+    direct_blocks,
+    direct_headers,
+    effective_headers,
+    extract_header,
+    has_header,
+    hsts_max_age,
+    is_https_server,
+)
 
 
 def make_directive(
@@ -17,6 +28,21 @@ def make_directive(
         children=children,
     )
 
+def make_header(
+        name: str,
+        value: str,
+) -> HeaderDefinition:
+    directive = make_directive(
+        "add_header",
+        (name, value),
+    )
+
+    return HeaderDefinition(
+        name=name.lower(),
+        value=value,
+        always=False,
+        directive=directive,
+    )
 
 def test_extract_header_returns_normalized_header_definition() -> None:
     directive = make_directive(
@@ -362,3 +388,56 @@ def test_direct_blocks_returns_empty_tuple_when_block_has_no_children() -> None:
     directive = make_directive("location", ("/",))
 
     assert tuple(direct_blocks(directive)) == ()
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    (
+            ("max-age=31536000", 31536000),
+            ('max-age="31536000"', 31536000),
+            ("includeSubDomains; max-age=1", 1),
+            ("MAX-AGE=31536000", 31536000),
+            ("max-age = 31536000", 31536000),
+            ("max-age=0", 0),
+            (
+                    "max-age=31536000; includeSubDomains; preload",
+                    31536000,
+            ),
+    ),
+)
+def test_hsts_max_age_extracts_valid_max_age(
+        value: str,
+        expected: int,
+) -> None:
+    header = make_header("Strict-Transport-Security", value)
+
+    assert hsts_max_age(header) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+            "",
+            "includeSubDomains",
+            "preload",
+            "max-age=",
+            'max-age=""',
+            "max-age=abc",
+            "max-age=-1",
+            "max-age=31.5",
+            "x-max-age=31536000",
+            "not-max-age=31536000",
+            "max-age=31536000seconds",
+    ),
+)
+def test_hsts_max_age_returns_none_for_invalid_or_missing_values(
+        value: str,
+) -> None:
+    header = make_header("Strict-Transport-Security", value)
+
+    assert hsts_max_age(header) is None
+
+
+def test_hsts_max_age_returns_none_for_non_hsts_header() -> None:
+    header = make_header("X-Frame-Options", "max-age=31536000")
+
+    assert hsts_max_age(header) is None

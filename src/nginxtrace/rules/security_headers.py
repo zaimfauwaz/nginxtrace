@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -10,6 +11,12 @@ class HeaderDefinition:
     value: str
     always: bool
     directive: Directive
+
+_HSTS_MAX_AGE_PATTERN = re.compile(
+    r"(?:^|;)\s*max-age\s*=\s*(?:\"(?P<quoted>\d+)\"|(?P<plain>\d+))\s*(?=;|$)",
+    re.IGNORECASE,
+)
+
 
 def extract_header(directive: Directive) -> HeaderDefinition | None:
     if directive.name != "add_header":
@@ -78,3 +85,19 @@ def has_header(
         and (value is None or header.value.lower() == value.lower())
         for header in headers
     )
+
+def hsts_max_age(header: HeaderDefinition) -> int | None:
+    if header.name != "strict-transport-security":
+        return None
+
+    match = _HSTS_MAX_AGE_PATTERN.search(header.value)
+
+    if match is None:
+        return None
+
+    value = match.group("quoted") or match.group("plain")
+
+    if value is None:
+        return None
+
+    return int(value)
