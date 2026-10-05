@@ -12,6 +12,7 @@ from nginxtrace.rules.security_headers import (
     has_header,
     hsts_max_age,
     is_https_server,
+    x_frame_options_value,
 )
 
 
@@ -441,3 +442,51 @@ def test_hsts_max_age_returns_none_for_non_hsts_header() -> None:
     header = make_header("X-Frame-Options", "max-age=31536000")
 
     assert hsts_max_age(header) is None
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    (
+            ("DENY", "DENY"),
+            ("deny", "DENY"),
+            ("  DenY  ", "DENY"),
+            ("SAMEORIGIN", "SAMEORIGIN"),
+            ("sameorigin", "SAMEORIGIN"),
+            ("  SameOrigin  ", "SAMEORIGIN"),
+    ),
+)
+def test_x_frame_options_value_normalizes_valid_values(
+        value: str,
+        expected: str,
+) -> None:
+    header = make_header("X-Frame-Options", value)
+
+    assert x_frame_options_value(header) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+            "",
+            " ",
+            "ALLOW-FROM",
+            "ALLOW-FROM https://trusted.example",
+            "SAME-ORIGIN",
+            "ALLOWALL",
+            "*",
+            "DENY extra",
+            "DENY;",
+            "SAMEORIGIN;",
+    ),
+)
+def test_x_frame_options_value_rejects_invalid_or_obsolete_values(
+        value: str,
+) -> None:
+    header = make_header("X-Frame-Options", value)
+
+    assert x_frame_options_value(header) is None
+
+
+def test_x_frame_options_value_rejects_non_xfo_header() -> None:
+    header = make_header("X-Content-Type-Options", "DENY")
+
+    assert x_frame_options_value(header) is None

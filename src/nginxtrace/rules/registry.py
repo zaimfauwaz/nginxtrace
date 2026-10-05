@@ -18,6 +18,10 @@ from nginxtrace.rules.missing_hsts import MissingHstsRule
 from nginxtrace.rules.weak_hsts import WeakHstsRule
 from nginxtrace.rules.nested_hsts_override import NestedHstsOverrideRule
 from nginxtrace.rules.hsts_without_always import HstsWithoutAlwaysRule
+from nginxtrace.rules.missing_x_frame_options import MissingXFrameOptionsRule
+from nginxtrace.rules.weak_x_frame_options import WeakXFrameOptionsRule
+from nginxtrace.rules.nested_x_frame_options_override import NestedXFrameOptionsOverrideRule
+from nginxtrace.rules.x_frame_options_without_always import XFrameOptionsWithoutAlwaysRule
 
 def default_rules() -> tuple[Rule, ...]:
     return (
@@ -40,6 +44,10 @@ def default_rules() -> tuple[Rule, ...]:
         WeakHstsRule(),
         NestedHstsOverrideRule(),
         HstsWithoutAlwaysRule(),
+        MissingXFrameOptionsRule(),
+        WeakXFrameOptionsRule(),
+        NestedXFrameOptionsOverrideRule(),
+        XFrameOptionsWithoutAlwaysRule(),
     )
 
 def find_rule(rule_id: str) -> Rule | None:

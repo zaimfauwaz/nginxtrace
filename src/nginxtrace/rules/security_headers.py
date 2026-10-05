@@ -101,3 +101,14 @@ def hsts_max_age(header: HeaderDefinition) -> int | None:
         return None
 
     return int(value)
+
+def x_frame_options_value(header: HeaderDefinition) -> str | None:
+    if header.name != "x-frame-options":
+        return None
+
+    value = header.value.strip().upper()
+
+    if value in {"DENY", "SAMEORIGIN"}:
+        return value
+
+    return None
