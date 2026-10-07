@@ -22,6 +22,15 @@ from nginxtrace.rules.missing_x_frame_options import MissingXFrameOptionsRule
 from nginxtrace.rules.weak_x_frame_options import WeakXFrameOptionsRule
 from nginxtrace.rules.nested_x_frame_options_override import NestedXFrameOptionsOverrideRule
 from nginxtrace.rules.x_frame_options_without_always import XFrameOptionsWithoutAlwaysRule
+from nginxtrace.rules.missing_referrer_policy import MissingReferrerPolicyRule
+from nginxtrace.rules.weak_referrer_policy import WeakReferrerPolicyRule
+from nginxtrace.rules.nested_referrer_policy_override import NestedReferrerPolicyOverrideRule
+from nginxtrace.rules.referrer_policy_without_always import ReferrerPolicyWithoutAlwaysRule
+from nginxtrace.rules.missing_permissions_policy import MissingPermissionsPolicyRule
+from nginxtrace.rules.weak_permissions_policy import WeakPermissionsPolicyRule
+from nginxtrace.rules.nested_permissions_policy_override import NestedPermissionsPolicyOverrideRule
+from nginxtrace.rules.permissions_policy_without_always import PermissionsPolicyWithoutAlwaysRule
+
 
 def default_rules() -> tuple[Rule, ...]:
     return (
@@ -48,6 +57,14 @@ def default_rules() -> tuple[Rule, ...]:
         WeakXFrameOptionsRule(),
         NestedXFrameOptionsOverrideRule(),
         XFrameOptionsWithoutAlwaysRule(),
+        MissingReferrerPolicyRule(),
+        WeakReferrerPolicyRule(),
+        NestedReferrerPolicyOverrideRule(),
+        ReferrerPolicyWithoutAlwaysRule(),
+        MissingPermissionsPolicyRule(),
+        WeakPermissionsPolicyRule(),
+        NestedPermissionsPolicyOverrideRule(),
+        PermissionsPolicyWithoutAlwaysRule(),
     )
 
 def find_rule(rule_id: str) -> Rule | None:

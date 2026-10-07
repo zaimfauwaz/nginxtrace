@@ -5,13 +5,18 @@ import pytest
 from nginxtrace.config.models import Directive
 from nginxtrace.rules.security_headers import (
     HeaderDefinition,
+    PermissionsPolicy,
+    ReferrerPolicyClass,
     direct_blocks,
     direct_headers,
+    disables_permissions_policy_feature,
     effective_headers,
     extract_header,
     has_header,
     hsts_max_age,
     is_https_server,
+    permissions_policy,
+    referrer_policy_class,
     x_frame_options_value,
 )
 
@@ -490,3 +495,221 @@ def test_x_frame_options_value_rejects_non_xfo_header() -> None:
     header = make_header("X-Content-Type-Options", "DENY")
 
     assert x_frame_options_value(header) is None
+
+@pytest.mark.parametrize(
+    "value",
+    (
+            "no-referrer",
+            "same-origin",
+            "strict-origin",
+            "strict-origin-when-cross-origin",
+            "  Strict-Origin-When-Cross-Origin  ",
+    ),
+)
+def test_referrer_policy_class_recognizes_recommended_policies(
+        value: str,
+) -> None:
+    header = make_header("Referrer-Policy", value)
+
+    assert referrer_policy_class(header) is ReferrerPolicyClass.RECOMMENDED
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+            "origin",
+            "origin-when-cross-origin",
+            "  ORIGIN  ",
+    ),
+)
+def test_referrer_policy_class_recognizes_permissive_policies(
+        value: str,
+) -> None:
+    header = make_header("Referrer-Policy", value)
+
+    assert referrer_policy_class(header) is ReferrerPolicyClass.PERMISSIVE
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+            "",
+            " ",
+            "unsafe-url",
+            "no-referrer-when-downgrade",
+            "strict-origin extra",
+            "origin; unsafe-url",
+            "unknown-policy",
+    ),
+)
+def test_referrer_policy_class_rejects_unsafe_or_invalid_values(
+        value: str,
+) -> None:
+    header = make_header("Referrer-Policy", value)
+
+    assert referrer_policy_class(header) is ReferrerPolicyClass.INVALID
+
+
+def test_referrer_policy_class_rejects_non_referrer_policy_header() -> None:
+    header = make_header(
+        "X-Content-Type-Options",
+        "strict-origin-when-cross-origin",
+    )
+
+    assert referrer_policy_class(header) is None
+
+def test_permissions_policy_returns_none_for_non_permissions_policy_header() -> None:
+    header = make_header("X-Frame-Options", "camera=()")
+
+    assert permissions_policy(header) is None
+
+
+def test_permissions_policy_parses_baseline_disabled_features() -> None:
+    header = make_header(
+        "Permissions-Policy",
+        "camera=(), microphone=(), geolocation=()",
+    )
+
+    policy = permissions_policy(header)
+
+    assert policy == PermissionsPolicy(
+        disabled_features=frozenset(
+            {
+                "camera",
+                "microphone",
+                "geolocation",
+            }
+        ),
+        configured_features=frozenset(
+            {
+                "camera",
+                "microphone",
+                "geolocation",
+            }
+        ),
+        is_valid=True,
+    )
+
+
+def test_permissions_policy_normalizes_feature_name_case() -> None:
+    header = make_header(
+        "Permissions-Policy",
+        "Camera=(), MICROPHONE=()",
+    )
+
+    policy = permissions_policy(header)
+
+    assert policy is not None
+    assert policy.disabled_features == frozenset({"camera", "microphone"})
+    assert policy.configured_features == frozenset({"camera", "microphone"})
+    assert policy.is_valid is True
+
+
+def test_permissions_policy_accepts_wildcard_allowlist() -> None:
+    header = make_header(
+        "Permissions-Policy",
+        "camera=*",
+    )
+
+    policy = permissions_policy(header)
+
+    assert policy == PermissionsPolicy(
+        disabled_features=frozenset(),
+        configured_features=frozenset({"camera"}),
+        is_valid=True,
+    )
+
+
+def test_permissions_policy_tracks_disabled_and_wildcard_features() -> None:
+    header = make_header(
+        "Permissions-Policy",
+        "camera=(), microphone=*, geolocation=()",
+    )
+
+    policy = permissions_policy(header)
+
+    assert policy == PermissionsPolicy(
+        disabled_features=frozenset({"camera", "geolocation"}),
+        configured_features=frozenset(
+            {
+                "camera",
+                "microphone",
+                "geolocation",
+            }
+        ),
+        is_valid=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+            "",
+            " ",
+            "camera",
+            "camera=",
+            "camera=(*",
+            "camera=() extra",
+            "camera=(self)",
+            'camera=("https://trusted.example")',
+            "camera=(), camera=*",
+            "camera=(), CAMERA=()",
+            ", camera=()",
+            "camera=(),",
+    ),
+)
+def test_permissions_policy_rejects_unsupported_or_invalid_values(
+        value: str,
+) -> None:
+    header = make_header("Permissions-Policy", value)
+
+    policy = permissions_policy(header)
+
+    assert policy == PermissionsPolicy(
+        disabled_features=frozenset(),
+        configured_features=frozenset(),
+        is_valid=False,
+    )
+
+
+def test_disables_permissions_policy_feature_returns_true_for_disabled_feature() -> None:
+    header = make_header(
+        "Permissions-Policy",
+        "camera=(), microphone=()",
+    )
+
+    assert disables_permissions_policy_feature(header, "camera") is True
+    assert disables_permissions_policy_feature(header, "MICROPHONE") is True
+
+
+def test_disables_permissions_policy_feature_returns_false_for_wildcard_feature() -> None:
+    header = make_header(
+        "Permissions-Policy",
+        "camera=*",
+    )
+
+    assert disables_permissions_policy_feature(header, "camera") is False
+
+
+def test_disables_permissions_policy_feature_returns_false_for_missing_feature() -> None:
+    header = make_header(
+        "Permissions-Policy",
+        "camera=()",
+    )
+
+    assert disables_permissions_policy_feature(header, "geolocation") is False
+
+
+def test_disables_permissions_policy_feature_returns_false_for_invalid_policy() -> None:
+    header = make_header(
+        "Permissions-Policy",
+        "camera=(self)",
+    )
+
+    assert disables_permissions_policy_feature(header, "camera") is False
+
+
+def test_disables_permissions_policy_feature_returns_false_for_non_policy_header() -> None:
+    header = make_header("X-Frame-Options", "DENY")
+
+    assert disables_permissions_policy_feature(header, "camera") is False

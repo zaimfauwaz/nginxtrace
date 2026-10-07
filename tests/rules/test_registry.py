@@ -61,4 +61,12 @@ def test_default_rules_include_all_registered_rules() -> None:
         "NGX-HEADER-SEC-008",
         "NGX-HEADER-SEC-009",
         "NGX-HEADER-SEC-010",
+        "NGX-HEADER-SEC-011",
+        "NGX-HEADER-SEC-012",
+        "NGX-HEADER-SEC-013",
+        "NGX-HEADER-SEC-014",
+        "NGX-HEADER-SEC-015",
+        "NGX-HEADER-SEC-016",
+        "NGX-HEADER-SEC-017",
+        "NGX-HEADER-SEC-018",
     ]

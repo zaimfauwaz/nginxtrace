@@ -1,6 +1,7 @@
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+from enum import StrEnum
 
 from nginxtrace.config.models import Directive
 
@@ -12,9 +13,50 @@ class HeaderDefinition:
     always: bool
     directive: Directive
 
+@dataclass(frozen=True)
+class PermissionsPolicy:
+    disabled_features: frozenset[str]
+    configured_features: frozenset[str]
+    is_valid: bool
+
+class ReferrerPolicyClass(StrEnum):
+    RECOMMENDED = "recommended"
+    PERMISSIVE = "permissive"
+    INVALID = "invalid"
+
+
 _HSTS_MAX_AGE_PATTERN = re.compile(
     r"(?:^|;)\s*max-age\s*=\s*(?:\"(?P<quoted>\d+)\"|(?P<plain>\d+))\s*(?=;|$)",
     re.IGNORECASE,
+)
+
+_RECOMMENDED_REFERRER_POLICIES = frozenset(
+    {
+        "no-referrer",
+        "same-origin",
+        "strict-origin",
+        "strict-origin-when-cross-origin",
+    }
+)
+
+_PERMISSIVE_REFERRER_POLICIES = frozenset(
+    {
+        "origin",
+        "origin-when-cross-origin",
+    }
+)
+
+_PERMISSIONS_POLICY_DIRECTIVE_PATTERN = re.compile(
+    r"^\s*(?P<feature>[a-z][a-z0-9-]*)\s*=\s*(?P<allowlist>\(\s*\)|\*)\s*$",
+    re.IGNORECASE,
+)
+
+_PERMISSIONS_POLICY_BASELINE_FEATURES = frozenset(
+    {
+        "camera",
+        "microphone",
+        "geolocation",
+    }
 )
 
 
@@ -112,3 +154,78 @@ def x_frame_options_value(header: HeaderDefinition) -> str | None:
         return value
 
     return None
+
+def referrer_policy_class(
+        header: HeaderDefinition,
+) -> ReferrerPolicyClass | None:
+    if header.name != "referrer-policy":
+        return None
+
+    value = header.value.strip().lower()
+
+    if value in _RECOMMENDED_REFERRER_POLICIES:
+        return ReferrerPolicyClass.RECOMMENDED
+
+    if value in _PERMISSIVE_REFERRER_POLICIES:
+        return ReferrerPolicyClass.PERMISSIVE
+
+    return ReferrerPolicyClass.INVALID
+
+def permissions_policy(header: HeaderDefinition) -> PermissionsPolicy | None:
+    if header.name != "permissions-policy":
+        return None
+
+    directives = header.value.split(",")
+
+    if not directives or not header.value.strip():
+        return PermissionsPolicy(
+            disabled_features=frozenset(),
+            configured_features=frozenset(),
+            is_valid=False,
+        )
+
+    disabled_features: set[str] = set()
+    configured_features: set[str] = set()
+
+    for directive in directives:
+        match = _PERMISSIONS_POLICY_DIRECTIVE_PATTERN.fullmatch(directive)
+
+        if match is None:
+            return PermissionsPolicy(
+                disabled_features=frozenset(),
+                configured_features=frozenset(),
+                is_valid=False,
+            )
+
+        feature = match.group("feature").lower()
+        allowlist = match.group("allowlist")
+
+        if feature in configured_features:
+            return PermissionsPolicy(
+                disabled_features=frozenset(),
+                configured_features=frozenset(),
+                is_valid=False,
+            )
+
+        configured_features.add(feature)
+
+        if allowlist.startswith("("):
+            disabled_features.add(feature)
+
+    return PermissionsPolicy(
+        disabled_features=frozenset(disabled_features),
+        configured_features=frozenset(configured_features),
+        is_valid=True,
+    )
+
+
+def disables_permissions_policy_feature(
+        header: HeaderDefinition,
+        feature: str,
+) -> bool:
+    policy = permissions_policy(header)
+
+    if policy is None or not policy.is_valid:
+        return False
+
+    return feature.lower() in policy.disabled_features
