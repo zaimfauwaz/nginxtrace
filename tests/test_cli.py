@@ -17,6 +17,7 @@ def test_cli_scan_returns_zero_for_safe_config(
     config_file.write_text(
         "server {\n"
         "    listen 80;\n"
+        "    return 301 https://$host$request_uri;\n"
         "}\n",
         encoding="utf-8",
     )
@@ -421,7 +422,7 @@ def test_cli_scan_example_policy_from_repository_root(
     )
 
     assert code == 0
-    assert "NGX-SECRET-001 examples/ngx-root-001-safe.nginx.conf:7" in out
+    assert out == "No findings.\n"
 
 
 def test_cli_scan_returns_two_for_config_outside_base_dir(

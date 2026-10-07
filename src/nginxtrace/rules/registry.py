@@ -32,6 +32,10 @@ from nginxtrace.rules.nested_permissions_policy_override import NestedPermission
 from nginxtrace.rules.permissions_policy_without_always import PermissionsPolicyWithoutAlwaysRule
 from nginxtrace.rules.legacy_tls_protocol import LegacyTlsProtocolRule
 # from nginxtrace.rules.missing_modern_tls_protocol import MissingModernTlsProtocolRule
+from nginxtrace.rules.http_to_https_redirect import HttpToHttpsRedirectRule
+from nginxtrace.rules.untrusted_redirect_host import UntrustedRedirectHostRule
+from nginxtrace.rules.temporary_https_redirect import TemporaryHttpsRedirectRule
+
 
 def default_rules() -> tuple[Rule, ...]:
     return (
@@ -68,6 +72,9 @@ def default_rules() -> tuple[Rule, ...]:
         PermissionsPolicyWithoutAlwaysRule(),
         LegacyTlsProtocolRule(),
         # MissingModernTlsProtocolRule(),
+        HttpToHttpsRedirectRule(),
+        UntrustedRedirectHostRule(),
+        TemporaryHttpsRedirectRule(),
     )
 
 def find_rule(rule_id: str) -> Rule | None:
