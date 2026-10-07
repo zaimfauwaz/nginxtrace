@@ -7,6 +7,7 @@ from nginxtrace.rules.security_headers import (
     HeaderDefinition,
     PermissionsPolicy,
     ReferrerPolicyClass,
+    TlsProtocolConfiguration,
     direct_blocks,
     direct_headers,
     disables_permissions_policy_feature,
@@ -17,6 +18,7 @@ from nginxtrace.rules.security_headers import (
     is_https_server,
     permissions_policy,
     referrer_policy_class,
+    ssl_protocols_configuration,
     x_frame_options_value,
 )
 
@@ -713,3 +715,118 @@ def test_disables_permissions_policy_feature_returns_false_for_non_policy_header
     header = make_header("X-Frame-Options", "DENY")
 
     assert disables_permissions_policy_feature(header, "camera") is False
+
+def test_ssl_protocols_configuration_returns_none_for_other_directive() -> None:
+    directive = make_directive("listen", ("443", "ssl"))
+
+    assert ssl_protocols_configuration(directive) is None
+
+
+def test_ssl_protocols_configuration_extracts_known_protocols() -> None:
+    directive = make_directive(
+        "ssl_protocols",
+        ("TLSv1.2", "TLSv1.3"),
+    )
+
+    configuration = ssl_protocols_configuration(directive)
+
+    assert configuration == TlsProtocolConfiguration(
+        protocols=frozenset({"TLSv1.2", "TLSv1.3"}),
+        directive=directive,
+    )
+
+
+def test_ssl_protocols_configuration_normalizes_protocol_case() -> None:
+    directive = make_directive(
+        "ssl_protocols",
+        ("tlsv1", "TLSV1.1", "tlsv1.2", "TLSv1.3"),
+    )
+
+    configuration = ssl_protocols_configuration(directive)
+
+    assert configuration is not None
+    assert configuration.protocols == frozenset(
+        {
+            "TLSv1",
+            "TLSv1.1",
+            "TLSv1.2",
+            "TLSv1.3",
+        }
+    )
+
+
+def test_ssl_protocols_configuration_includes_legacy_ssl_protocols() -> None:
+    directive = make_directive(
+        "ssl_protocols",
+        ("SSLv2", "SSLv3", "TLSv1"),
+    )
+
+    configuration = ssl_protocols_configuration(directive)
+
+    assert configuration is not None
+    assert configuration.protocols == frozenset(
+        {
+            "SSLv2",
+            "SSLv3",
+            "TLSv1",
+        }
+    )
+
+
+def test_ssl_protocols_configuration_deduplicates_protocols() -> None:
+    directive = make_directive(
+        "ssl_protocols",
+        ("TLSv1.3", "TLSv1.3", "TLSv1.2"),
+    )
+
+    configuration = ssl_protocols_configuration(directive)
+
+    assert configuration is not None
+    assert configuration.protocols == frozenset(
+        {
+            "TLSv1.2",
+            "TLSv1.3",
+        }
+    )
+
+
+def test_ssl_protocols_configuration_ignores_unknown_arguments() -> None:
+    directive = make_directive(
+        "ssl_protocols",
+        ("TLSv1.2", "UNKNOWN", "TLSv1.3"),
+    )
+
+    configuration = ssl_protocols_configuration(directive)
+
+    assert configuration is not None
+    assert configuration.protocols == frozenset(
+        {
+            "TLSv1.2",
+            "TLSv1.3",
+        }
+    )
+
+
+def test_ssl_protocols_configuration_returns_empty_set_for_only_unknown_arguments() -> None:
+    directive = make_directive(
+        "ssl_protocols",
+        ("UNKNOWN",),
+    )
+
+    configuration = ssl_protocols_configuration(directive)
+
+    assert configuration == TlsProtocolConfiguration(
+        protocols=frozenset(),
+        directive=directive,
+    )
+
+
+def test_ssl_protocols_configuration_returns_empty_set_for_no_arguments() -> None:
+    directive = make_directive("ssl_protocols")
+
+    configuration = ssl_protocols_configuration(directive)
+
+    assert configuration == TlsProtocolConfiguration(
+        protocols=frozenset(),
+        directive=directive,
+    )

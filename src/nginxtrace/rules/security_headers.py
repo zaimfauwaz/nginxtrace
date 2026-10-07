@@ -19,6 +19,16 @@ class PermissionsPolicy:
     configured_features: frozenset[str]
     is_valid: bool
 
+@dataclass(frozen=True)
+class TlsProtocolConfiguration:
+    protocols: frozenset[str]
+    directive: Directive
+
+@dataclass(frozen=True)
+class EffectiveTlsProtocolConfiguration:
+    configuration: TlsProtocolConfiguration | None
+    is_ambiguous: bool
+
 class ReferrerPolicyClass(StrEnum):
     RECOMMENDED = "recommended"
     PERMISSIVE = "permissive"
@@ -58,6 +68,22 @@ _PERMISSIONS_POLICY_BASELINE_FEATURES = frozenset(
         "geolocation",
     }
 )
+
+_KNOWN_TLS_PROTOCOLS = frozenset(
+    {
+        "SSLv2",
+        "SSLv3",
+        "TLSv1",
+        "TLSv1.1",
+        "TLSv1.2",
+        "TLSv1.3",
+    }
+)
+
+_TLS_PROTOCOL_NORMALIZATION = {
+    protocol.lower(): protocol
+    for protocol in _KNOWN_TLS_PROTOCOLS
+}
 
 
 def extract_header(directive: Directive) -> HeaderDefinition | None:
@@ -229,3 +255,22 @@ def disables_permissions_policy_feature(
         return False
 
     return feature.lower() in policy.disabled_features
+
+def ssl_protocols_configuration(
+        directive: Directive,
+) -> TlsProtocolConfiguration | None:
+    if directive.name != "ssl_protocols":
+        return None
+
+    protocols = frozenset(
+        normalized
+        for argument in directive.arguments
+        if (normalized := _TLS_PROTOCOL_NORMALIZATION.get(argument.lower()))
+        is not None
+    )
+
+    return TlsProtocolConfiguration(
+        protocols=protocols,
+        directive=directive,
+    )
+

@@ -30,7 +30,8 @@ from nginxtrace.rules.missing_permissions_policy import MissingPermissionsPolicy
 from nginxtrace.rules.weak_permissions_policy import WeakPermissionsPolicyRule
 from nginxtrace.rules.nested_permissions_policy_override import NestedPermissionsPolicyOverrideRule
 from nginxtrace.rules.permissions_policy_without_always import PermissionsPolicyWithoutAlwaysRule
-
+from nginxtrace.rules.legacy_tls_protocol import LegacyTlsProtocolRule
+# from nginxtrace.rules.missing_modern_tls_protocol import MissingModernTlsProtocolRule
 
 def default_rules() -> tuple[Rule, ...]:
     return (
@@ -65,6 +66,8 @@ def default_rules() -> tuple[Rule, ...]:
         WeakPermissionsPolicyRule(),
         NestedPermissionsPolicyOverrideRule(),
         PermissionsPolicyWithoutAlwaysRule(),
+        LegacyTlsProtocolRule(),
+        # MissingModernTlsProtocolRule(),
     )
 
 def find_rule(rule_id: str) -> Rule | None:
